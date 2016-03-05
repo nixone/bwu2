@@ -1,3 +1,10 @@
+.classpath
+.settings
+.project
+bin
+
+bwapi-data/*
+
 *.class
 
 # Mobile Tools for Java (J2ME)
