@@ -268,6 +268,14 @@ public interface UnitSelector
 		}
 	};
 
+	static public final BooleanSelector IS_UNDER_STORM = new BooleanSelector() {
+		
+		@Override
+		public boolean isTrueFor(Unit unit) {
+			return unit.isUnderStorm();
+		}
+	};
+	
 	static public final IntegerSelector DEFENSE_MATRIX_POINTS = new IntegerSelector()
 	{
 		@Override

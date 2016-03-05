@@ -6,12 +6,16 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 
+import bwapi.Game;
 import bwapi.Unit;
 import bwapi.UnitType;
 import sk.nixone.bwu2.math.Comparison;
 import sk.nixone.bwu2.math.Vector2D;
 import sk.nixone.bwu2.math.Vector2DMath;
+import sk.nixone.bwu2.selection.UnitSelector.IntegerSelector;
 import sk.nixone.bwu2.selection.UnitSelector.RealSelector;
+import sk.nixone.bwu2.selection.actions.UnitAction;
+import sk.nixone.bwu2.selection.actions.UnitActionBuffer;
 import sk.nixone.bwu2.selection.aggregators.AverageRealAggregator;
 
 /**
@@ -43,6 +47,12 @@ public class UnitSet extends HashSet<Unit>
 	{
 		for (Unit unit : units)
 		{
+			add(unit);
+		}
+	}
+	
+	public UnitSet(Unit... units) {
+		for (Unit unit : units) {
 			add(unit);
 		}
 	}
@@ -357,9 +367,19 @@ public class UnitSet extends HashSet<Unit>
 		return picker.pickFrom(this);
 	}
 	
-	public Collection<Unit> pickNOrdered(int limit, RealSelector orderingSelector) {
+	public List<Unit> pickNOrdered(int limit, final IntegerSelector orderingSelector) {
+		return pickNOrdered(limit, new RealSelector() {
+			
+			@Override
+			public double getValue(Unit unit) {
+				return orderingSelector.getValue(unit);
+			}
+		});
+	}
+	
+	public List<Unit> pickNOrdered(int limit, RealSelector orderingSelector) {
 		List<Unit> result = new ArrayList<>();
-    	double lastValue = Double.MIN_VALUE;
+    	double lastValue = Double.NEGATIVE_INFINITY;
     	
     	for (int i=0; i<limit; i++) {
     		double bestValue = Double.MAX_VALUE;
@@ -383,5 +403,11 @@ public class UnitSet extends HashSet<Unit>
     	}
     	
     	return result;
+	}
+	
+	public void act(UnitActionBuffer buffer, UnitAction action) {
+		for (Unit unit : this) {
+			buffer.act(unit, action);
+		}
 	}
 }
