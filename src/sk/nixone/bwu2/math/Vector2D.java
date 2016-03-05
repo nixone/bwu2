@@ -1,5 +1,6 @@
 package sk.nixone.bwu2.math;
 import bwapi.Position;
+import bwapi.WalkPosition;
 
 /**
  * Class representing two dimensional vector and operations defined on it. This
@@ -46,6 +47,14 @@ public class Vector2D
 	 */
 	final public float length;
 
+	public Vector2D(Position position) {
+		this(position.getX(), position.getY());
+	}
+	
+	public Vector2D(WalkPosition position) {
+		this(position.getX()*8, position.getY()*8);
+	}
+	
 	/**
 	 * Creates a vector.
 	 * 
@@ -211,5 +220,9 @@ public class Vector2D
 	public Position toPosition()
 	{
 		return Vector2DMath.toPosition(this);
+	}
+	
+	public WalkPosition toWalkPosition() {
+		return new WalkPosition((int)Math.round(getX()/8.), (int)Math.round(getY()/8.));
 	}
 }

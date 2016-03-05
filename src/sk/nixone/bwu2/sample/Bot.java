@@ -1,5 +1,6 @@
 package sk.nixone.bwu2.sample;
 
+import java.util.Iterator;
 import java.util.List;
 
 import bwapi.Color;
@@ -7,25 +8,25 @@ import bwapi.DefaultBWListener;
 import bwapi.Game;
 import bwapi.Mirror;
 import bwapi.Player;
+import bwapi.Position;
 import bwapi.TechType;
 import bwapi.TilePosition;
 import bwapi.Unit;
 import bwapi.UnitType;
+import bwapi.WalkPosition;
 import bwta.BWTA;
 import sk.nixone.bwu2.math.Comparison;
 import sk.nixone.bwu2.math.Relativity;
 import sk.nixone.bwu2.math.Vector2D;
 import sk.nixone.bwu2.math.Vector2DMath;
+import sk.nixone.bwu2.path.Map;
 import sk.nixone.bwu2.selection.DistanceSelector;
-import sk.nixone.bwu2.selection.MostInBackSelector;
-import sk.nixone.bwu2.selection.MostInFrontSelector;
 import sk.nixone.bwu2.selection.RealComparisonSelector;
 import sk.nixone.bwu2.selection.UnitSelector;
 import sk.nixone.bwu2.selection.UnitSelector.UnitTypeSelector;
 import sk.nixone.bwu2.selection.UnitSet;
 import sk.nixone.bwu2.selection.actions.AttackMoveAction;
 import sk.nixone.bwu2.selection.actions.MoveAction;
-import sk.nixone.bwu2.selection.actions.StopAction;
 import sk.nixone.bwu2.selection.actions.UnitActionBuffer;
 
 public class Bot extends DefaultBWListener {
@@ -56,6 +57,9 @@ public class Bot extends DefaultBWListener {
     private Vector2D vectorOfAttack = null;
     private Vector2D armyPosition = null;
     
+    private List<int[]> path = null;
+    private Map map = null;
+    
     private UnitSet mine = null;
     private UnitSet enemies = null;
     private UnitSet zealots = null;
@@ -71,6 +75,11 @@ public class Bot extends DefaultBWListener {
 	        templars = mine.where(new UnitTypeSelector(UnitType.Protoss_High_Templar));
 	        dragoons = mine.where(new UnitTypeSelector(UnitType.Protoss_Dragoon));
 	        enemies = new UnitSet(game.getAllUnits()).minus(mine);
+	       
+	        if (map == null) {
+	        	map = new Map(game);
+	        	map = map.remapFromBound(5);
+	        }
 	        
 	        game.drawTextScreen(10, 10, "Frame: "+game.getFrameCount());
 	        
@@ -93,11 +102,13 @@ public class Bot extends DefaultBWListener {
 	        } else {
 	        	pointOfAttack = enemies.getArithmeticCenter();
 	        }
+	        
 	        vectorOfAttack = pointOfAttack.sub(mine.getArithmeticCenter()).normalize();
+	        path = map.getPath(armyPosition.toWalkPosition(), pointOfAttack.toWalkPosition());
 	        
 	        whatToDo();
 	        
-	        if (game.getFrameCount() % 25 == 0) {
+	        if (game.getFrameCount() % 10 == 0) {
 	        	actionBuffer.executeAll();
 	        }
 	        
@@ -110,6 +121,25 @@ public class Bot extends DefaultBWListener {
     private void drawDebug() {
     	game.drawCircleMap(mine.getArithmeticCenter().toPosition(), 10, Color.Green);
     	game.drawLineMap(armyPosition.toPosition(), armyPosition.add(vectorOfAttack.scale(200)).toPosition(), Color.Green);
+    	
+    	if (path != null) {
+    		game.drawTextScreen(10, 50, "Army: "+armyPosition);
+    		Position lastPosition = null;
+        	Iterator<int[]> it = path.iterator();
+        	while (it.hasNext()) {
+        		int[] p = it.next();
+        		Position current = new Vector2D(new WalkPosition(p[0], p[1])).toPosition();
+        		
+        		if (lastPosition != null) {
+        			game.drawLineMap(lastPosition, current, Color.Green);
+        		} else {
+        			game.drawTextScreen(10, 30, "First: "+current);
+        		}
+        		
+        		lastPosition = current;
+        	}
+        	game.drawTextScreen(10, 40, "Last: "+lastPosition);
+    	}
     }
     
     private void whatToDo() {
@@ -144,7 +174,7 @@ public class Bot extends DefaultBWListener {
     		}
     	}
 
-    	Vector2D[] orthos = vectorOfAttack.scale(500).getOrthogonal();
+    	Vector2D[] orthos = vectorOfAttack.scale(50).getOrthogonal();
     	
     	game.drawLineMap(minCenter.add(orthos[0]).toPosition(), minCenter.add(orthos[1]).toPosition(), Color.Blue);
     	game.drawLineMap(maxCenter.add(orthos[0]).toPosition(), maxCenter.add(orthos[1]).toPosition(), Color.Blue);
@@ -159,16 +189,22 @@ public class Bot extends DefaultBWListener {
     
     private void focusFire() {
     	for(Unit unit : zealots.union(dragoons)) {
-    		if (!unit.isAttackFrame()) {
-    			UnitSet enemiesInRange = enemies
-    					.whereLessOrEqual(new DistanceSelector(unit), unit.getType().groundWeapon().maxRange());
-    			
-    			List<Unit> toKill = enemiesInRange.pickNOrdered(1, UnitSelector.HIT_POINTS);
-    			if (!toKill.isEmpty()) {
-    				unit.attack(toKill.get(0));
-    				game.drawLineMap(unit.getPosition(), toKill.get(0).getPosition(), Color.Red);
-    			}
-    		}
+    		UnitSet enemiesInRange = enemies
+    				.where(UnitSelector.CAN_ATTACK_GROUND)
+					.whereLessOrEqual(new DistanceSelector(unit), unit.getType().groundWeapon().maxRange()*2f);
+    		
+			List<Unit> toKill = enemiesInRange.pickNOrdered(1, UnitSelector.HIT_POINTS);
+			
+			if (!toKill.isEmpty()) {
+				game.drawLineMap(unit.getPosition(), toKill.get(0).getPosition(), Color.Red);
+				
+				if (!unit.isAttackFrame()) {
+					Unit target = toKill.get(0);
+					unit.attack(target, true);
+					game.drawCircleMap(target.getPosition(), 10, Color.Red, true);
+					game.drawCircleMap(unit.getPosition(), 10, Color.Red, true);
+				}
+			}
     	}
     }
     
@@ -211,31 +247,6 @@ public class Bot extends DefaultBWListener {
 				}
 			}
 		}
-    }
-    
-    private void waitFor(UnitType firstUnitType, UnitType lastUnitType, float distance) {
-    	List<Unit> firsts = mine
-    			.where(new UnitTypeSelector(firstUnitType))
-    			.pickNOrdered(1, new MostInFrontSelector(armyPosition, vectorOfAttack));
-    	
-    	List<Unit> lasts = mine
-    			.where(new UnitTypeSelector(lastUnitType))
-    			.pickNOrdered(1, new MostInBackSelector(armyPosition, vectorOfAttack));
-    	
-    	if (!firsts.isEmpty() && !lasts.isEmpty()) {
-    		Unit first = firsts.get(0);
-    		Unit last = lasts.get(0);
-    		
-    		game.drawLineMap(first.getPosition(), last.getPosition(), Color.White);
-    		
-    		float realDistance = Vector2DMath.toVector(first.getPosition()).sub(Vector2DMath.toVector(last.getPosition())).length;
-    	
-    		if (realDistance > distance*1.1f) {
-    			actionBuffer.act(first, new MoveAction(last));
-    		} else if (realDistance > distance) {
-    			actionBuffer.act(first, new StopAction());
-    		}
-    	}
     }
     
     public static void main(String[] args) {
