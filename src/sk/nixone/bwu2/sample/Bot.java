@@ -104,7 +104,7 @@ public class Bot extends DefaultBWListener {
 	        }
 	        
 	        vectorOfAttack = pointOfAttack.sub(mine.getArithmeticCenter()).normalize();
-	        path = map.getPath(armyPosition.toWalkPosition(), pointOfAttack.toWalkPosition());
+	        //path = map.getPath(armyPosition.toWalkPosition(), pointOfAttack.toWalkPosition());
 	        
 	        whatToDo();
 	        
@@ -146,9 +146,9 @@ public class Bot extends DefaultBWListener {
     	if (enemies.isEmpty()) {
     		mine.act(actionBuffer, new AttackMoveAction(pointOfAttack, Relativity.ABSOLUTE));
     		
-    		holdLine(UnitType.Protoss_Zealot, 100, 250);
+    		holdLine(UnitType.Protoss_Zealot, 100, 200);
     		holdLine(UnitType.Protoss_Dragoon, -50, 100);
-    		holdLine(UnitType.Protoss_High_Templar, -150, -50);
+    		holdLine(UnitType.Protoss_High_Templar, -100, -50);
     	} else {
     		zealots.act(actionBuffer, new AttackMoveAction(enemies.getArithmeticCenter(), Relativity.ABSOLUTE));
     		dragoons.act(actionBuffer, new AttackMoveAction(enemies.getArithmeticCenter(), Relativity.ABSOLUTE));
@@ -161,16 +161,29 @@ public class Bot extends DefaultBWListener {
     }
     
     private void holdLine(UnitType type, float min, float max) {
+    	UnitSet units = mine.where(new UnitTypeSelector(type));
+    	
     	Vector2D minCenter = armyPosition.add(vectorOfAttack.scale(min));
     	Vector2D maxCenter = armyPosition.add(vectorOfAttack.scale(max));
     	Vector2D lineCenter = minCenter.add(maxCenter).scale(0.5f);
     	
-    	for (Unit unit : mine.where(new UnitTypeSelector(type))) {
+    	for (Unit unit : units) {
     		Vector2D unitRelativePosition = Vector2DMath.toVector(unit.getPosition()).sub(armyPosition);
     		float line = Vector2DMath.dotProduct(unitRelativePosition, vectorOfAttack);
+    		
     		if (line < min || line > max) {
-    			actionBuffer.act(unit, new MoveAction(lineCenter, Relativity.ABSOLUTE));
-    			game.drawLineMap(lineCenter.toPosition(), unit.getPosition(), Color.White);
+    			Vector2D lineRelative = new Vector2D(unit.getPosition()).sub(lineCenter);
+    			Vector2D lineVector = vectorOfAttack.getOrthogonal()[0];
+    			float positionInLine = Vector2DMath.dotProduct(lineRelative, lineVector);
+    			float normalizedPositionInLine = positionInLine / units
+    					.getMaximumDistanceFrom(new DistanceSelector(lineCenter));
+    			
+    			float realPositionInLine = normalizedPositionInLine * units.size() * 32;
+    			
+    			Vector2D whereToMove = lineCenter.add(lineVector.scale(realPositionInLine));
+    			
+    			actionBuffer.act(unit, new MoveAction(whereToMove, Relativity.ABSOLUTE));
+    			game.drawLineMap(whereToMove.toPosition(), unit.getPosition(), Color.White);
     		}
     	}
 
@@ -198,7 +211,7 @@ public class Bot extends DefaultBWListener {
 			if (!toKill.isEmpty()) {
 				game.drawLineMap(unit.getPosition(), toKill.get(0).getPosition(), Color.Red);
 				
-				if (!unit.isAttackFrame()) {
+				if (!unit.isAttackFrame() && !unit.isAttacking()) {
 					Unit target = toKill.get(0);
 					unit.attack(target, true);
 					game.drawCircleMap(target.getPosition(), 10, Color.Red, true);

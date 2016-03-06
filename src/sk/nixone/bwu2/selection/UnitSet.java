@@ -216,6 +216,17 @@ public class UnitSet extends HashSet<Unit>
 	{
 		return (new AverageRealAggregator(new DistanceSelector(point))).aggregate(this);
 	}
+	
+	public float getMaximumDistanceFrom(DistanceSelector distanceSelector) {
+		float best = Float.NEGATIVE_INFINITY;
+		for (Unit unit : this) {
+			float d = (float)distanceSelector.getValue(unit);
+			if (d > best) {
+				best = d;
+			}
+		}
+		return best;
+	}
 
 	/**
 	 * Returns the first unit of specified types that exists in this set.
