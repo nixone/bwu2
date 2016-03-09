@@ -108,7 +108,7 @@ public class Bot extends DefaultBWListener {
 	        
 	        whatToDo();
 	        
-	        if (game.getFrameCount() % 10 == 0) {
+	        if (game.getFrameCount() % 3 == 0) {
 	        	actionBuffer.executeAll();
 	        }
 	        
@@ -201,17 +201,26 @@ public class Bot extends DefaultBWListener {
     }
     
     private void focusFire() {
+    	int dragoonRange = (int)(UnitType.Protoss_Dragoon.groundWeapon().maxRange() * 1.5f);
+    	
     	for(Unit unit : zealots.union(dragoons)) {
+    		int realRange = unit.getType().airWeapon().maxRange();
+    		if (unit.getType().equals(UnitType.Protoss_Dragoon)) {
+    			realRange = dragoonRange;
+    		}
+    		
+    		int testRange = (int)(realRange*1.25f);
+    		
     		UnitSet enemiesInRange = enemies
     				.where(UnitSelector.CAN_ATTACK_GROUND)
-					.whereLessOrEqual(new DistanceSelector(unit), unit.getType().groundWeapon().maxRange()*2f);
+					.whereLessOrEqual(new DistanceSelector(unit), testRange);
     		
 			List<Unit> toKill = enemiesInRange.pickNOrdered(1, UnitSelector.HIT_POINTS);
 			
 			if (!toKill.isEmpty()) {
 				game.drawLineMap(unit.getPosition(), toKill.get(0).getPosition(), Color.Red);
 				
-				if (!unit.isAttackFrame() && !unit.isAttacking()) {
+				if (!unit.isAttackFrame() && !unit.isStartingAttack()) {
 					Unit target = toKill.get(0);
 					unit.attack(target, true);
 					game.drawCircleMap(target.getPosition(), 10, Color.Red, true);

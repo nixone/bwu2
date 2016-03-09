@@ -21,7 +21,9 @@ public class UnitActionBuffer {
 	
 	public void executeAll() {
 		for (Unit unit : unitActions.keySet()) {
-			unitActions.get(unit).execute(game, unit);
+			if (!unit.isAttackFrame() && !unit.isStartingAttack()) {
+				unitActions.get(unit).execute(game, unit);
+			}
 		}
 		unitActions.clear();
 	}
