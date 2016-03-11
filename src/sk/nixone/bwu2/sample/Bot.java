@@ -57,7 +57,7 @@ public class Bot extends DefaultBWListener {
     private Vector2D vectorOfAttack = null;
     private Vector2D armyPosition = null;
     
-    private List<int[]> path = null;
+    private List<WalkPosition> path = null;
     private Map map = null;
     
     private UnitSet mine = null;
@@ -77,8 +77,9 @@ public class Bot extends DefaultBWListener {
 	        enemies = new UnitSet(game.getAllUnits()).minus(mine);
 	       
 	        if (map == null) {
-	        	map = new Map(game);
-	        	map = map.remapFromBound(5);
+	        	map = new Map(game)
+	        			.remapFromBound(5)
+	        			.downscale(4, true);
 	        }
 	        
 	        game.drawTextScreen(10, 10, "Frame: "+game.getFrameCount());
@@ -104,7 +105,7 @@ public class Bot extends DefaultBWListener {
 	        }
 	        
 	        vectorOfAttack = pointOfAttack.sub(mine.getArithmeticCenter()).normalize();
-	        //path = map.getPath(armyPosition.toWalkPosition(), pointOfAttack.toWalkPosition());
+	        path = map.getPath(armyPosition.toWalkPosition(), pointOfAttack.toWalkPosition());
 	        
 	        whatToDo();
 	        
@@ -125,10 +126,9 @@ public class Bot extends DefaultBWListener {
     	if (path != null) {
     		game.drawTextScreen(10, 50, "Army: "+armyPosition);
     		Position lastPosition = null;
-        	Iterator<int[]> it = path.iterator();
+        	Iterator<WalkPosition> it = path.iterator();
         	while (it.hasNext()) {
-        		int[] p = it.next();
-        		Position current = new Vector2D(new WalkPosition(p[0], p[1])).toPosition();
+        		Position current = new Vector2D(it.next()).toPosition();
         		
         		if (lastPosition != null) {
         			game.drawLineMap(lastPosition, current, Color.Green);

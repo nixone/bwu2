@@ -12,6 +12,7 @@ public class Map {
 	private boolean [][] matrix;
 	private int width;
 	private int height;
+	private int downscaleFactor = 1;
 	
 	public Map(boolean[][] matrix) {
 		this.matrix = matrix;
@@ -34,6 +35,30 @@ public class Map {
 		if (x < 0 || x >= width) return false;
 		if (y < 0 || y >= height) return false;
 		return matrix[x][y];
+	}
+	
+	public Map downscale(int factor, boolean or) {
+		int newWidth = width / factor + (width % factor != 0 ? 1 : 0);
+		int newHeight = height / factor + (height % factor != 0 ? 1 : 0);
+		boolean[][] newMatrix = new boolean[newWidth][newHeight];
+		
+		for (int x=0; x<newWidth; x++) {
+			for (int y=0; y<newHeight; y++) {
+				boolean walkable = !or;
+				for (int ox=0; ox<factor; ox++) {
+					for (int oy=0; oy<factor; oy++) {
+						if (or == isWalkable(x*factor + ox, y*factor + oy)) {
+							walkable = or;
+						}
+					}
+				}
+				newMatrix[x][y] = walkable;
+			}
+		}
+		
+		Map result = new Map(newMatrix);
+		result.downscaleFactor = factor;
+		return result;
 	}
 	
 	public Map remapFromBound(float distance) {
@@ -64,9 +89,21 @@ public class Map {
 		return new Map(newMatrix);
 	}
 	
-	public List<int[]> getPath(WalkPosition from, WalkPosition to) {
-		final int targetX = to.getX();
-		final int targetY = to.getY();
+	private int [] toIndexes(WalkPosition position) {
+		return new int [] {
+			position.getX() / downscaleFactor,
+			position.getY() / downscaleFactor
+		};
+	}
+	
+	private WalkPosition fromIndexes(int x, int y) {
+		return new WalkPosition(x * downscaleFactor + downscaleFactor/2, y * downscaleFactor + downscaleFactor/2);
+	}
+	
+	// TODO return even the closest
+	public List<WalkPosition> getPath(WalkPosition from, WalkPosition to) {
+		final int [] target = toIndexes(to);
+		final int [] source = toIndexes(from);
 		
 		int [][][] pred = new int[width][height][2];
 		boolean [][] discovered = new boolean[width][height];
@@ -75,13 +112,13 @@ public class Map {
 		PriorityQueue<int[]> queue = new PriorityQueue<int[]>(10, new Comparator<int[]>() {
 			@Override
 			public int compare(int[] o1, int[] o2) {
-				int tx = o1[0]-targetX;
-				int ty = o1[1]-targetY;
+				int tx = o1[0]-target[0];
+				int ty = o1[1]-target[1];
 				int dx = o1[0]-o1[2];
 				int dy = o1[1]-o1[3];
 				double l1 = lengths[o1[2]][o1[3]] + Math.sqrt(tx*tx+ty*ty) + Math.sqrt(dx*dx+dy*dy);
-				tx = o2[0]-targetX;
-				ty = o2[1]-targetY;
+				tx = o2[0]-target[0];
+				ty = o2[1]-target[1];
 				dx = o2[0]-o2[2];
 				dy = o2[1]-o2[3];
 				double l2 = lengths[o2[2]][o2[3]] + Math.sqrt(tx*tx+ty*ty) + Math.sqrt(dx*dx+dy*dy);
@@ -89,7 +126,7 @@ public class Map {
 			}
 		});
 		
-		queue.add(new int[]{ from.getX(), from.getY(), from.getX(), from.getY() });
+		queue.add(new int[]{ source[0], source[1], source[0], source[1] });
 		
 		while(!queue.isEmpty()) {
 			int [] pos = queue.poll();
@@ -107,11 +144,11 @@ public class Map {
 			int dy = pos[1]-pos[3];
 			lengths[pos[0]][pos[1]] = lengths[pos[2]][pos[3]] + Math.sqrt(dx*dx+dy*dy);
 			
-			if (pos[0]==targetX && pos[1]==targetY) {
-				LinkedList<int[]> path = new LinkedList<>();
+			if (pos[0]==target[0] && pos[1]==target[1]) {
+				LinkedList<WalkPosition> path = new LinkedList<>();
 				
-				while (pos[0] != from.getX() || pos[1] != from.getY()) {
-					path.addFirst(new int[]{ pos[0], pos[1]});
+				while (pos[0] != source[0] || pos[1] != source[1]) {
+					path.addFirst(fromIndexes(pos[0], pos[1]));
 					pos[0] = pos[2];
 					pos[1] = pos[3];
 					pos[2] = pred[pos[0]][pos[1]][0];
@@ -123,7 +160,8 @@ public class Map {
 				for (int oy=-1; oy<=1; oy++) {
 					int nx = pos[0]+ox;
 					int ny = pos[1]+oy;
-					if (isWalkable(nx, ny) && !discovered[nx][ny]) {
+					
+					if ((!isWalkable(pos[0], pos[1]) || isWalkable(nx, ny)) && !discovered[nx][ny]) {
 						queue.add(new int[]{nx, ny, pos[0], pos[1]});
 					}
 				}
