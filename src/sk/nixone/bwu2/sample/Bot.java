@@ -1,6 +1,7 @@
 package sk.nixone.bwu2.sample;
 
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 
 import bwapi.Color;
@@ -53,6 +54,9 @@ public class Bot extends DefaultBWListener {
         BWTA.analyze();
     }
     
+    private LinkedList<Vector2D> pointsToDiscover = new LinkedList<>();
+    private Vector2D pointToDiscover = null;
+    
     private Vector2D pointOfAttack = null;
     private Vector2D vectorOfAttack = null;
     private Vector2D armyPosition = null;
@@ -78,34 +82,37 @@ public class Bot extends DefaultBWListener {
 	       
 	        if (map == null) {
 	        	map = new Map(game)
-	        			.remapFromBound(5)
-	        			.downscale(4, true);
+	        			.remapFromBound(10)
+	        			.downscale(2, true);
 	        }
 	        
 	        game.drawTextScreen(10, 10, "Frame: "+game.getFrameCount());
 	        
-	        if (enemies.isEmpty()) {
-	        	boolean amAtStart = false;
-	        	Vector2D otherStart = null;
-	        	
+	        if (pointsToDiscover.isEmpty()) {
 	        	for(TilePosition startLocation : game.getStartLocations()) {
 	        		Vector2D position = Vector2DMath.toVector(startLocation.toPosition());
-	        		if (mine.areAt(position, 300)) {
-	        			amAtStart = true;
-	        		} else {
-	        			otherStart = position;
+	        		if (!mine.areAt(position, 100)) {
+	        			pointsToDiscover.add(position);
 	        		}
 	        	}
-	        	
-	        	if (amAtStart) {
-	        		pointOfAttack = otherStart;
-	        	}
-	        } else {
+	        }
+	        if (pointToDiscover == null || mine.areAt(pointToDiscover, 100)) {
+	        	pointToDiscover = pointsToDiscover.removeFirst();
+	        }
+	        
+	        if (pointToDiscover != null) {
+	        	path = map.getPath(armyPosition.toWalkPosition(), pointToDiscover.toWalkPosition());
+	        }
+	        
+	        if (!enemies.isEmpty()) {
 	        	pointOfAttack = enemies.getArithmeticCenter();
+	        } else if(path != null && !path.isEmpty()) {
+	        	pointOfAttack = new Vector2D(path.get(0));
+	        } else {
+	        	pointOfAttack = new Vector2D(0, 0);
 	        }
 	        
 	        vectorOfAttack = pointOfAttack.sub(mine.getArithmeticCenter()).normalize();
-	        path = map.getPath(armyPosition.toWalkPosition(), pointOfAttack.toWalkPosition());
 	        
 	        whatToDo();
 	        
@@ -144,11 +151,17 @@ public class Bot extends DefaultBWListener {
     
     private void whatToDo() {
     	if (enemies.isEmpty()) {
-    		mine.act(actionBuffer, new AttackMoveAction(pointOfAttack, Relativity.ABSOLUTE));
+    		for (Unit unit : mine) {
+    			Vector2D newPosition = new Vector2D(unit.getPosition())
+    					.sub(armyPosition)
+    					.add(pointOfAttack);
+    			
+    			actionBuffer.act(unit, new AttackMoveAction(newPosition, Relativity.ABSOLUTE));
+    		}
     		
-    		holdLine(UnitType.Protoss_Zealot, 100, 200);
-    		holdLine(UnitType.Protoss_Dragoon, -50, 100);
-    		holdLine(UnitType.Protoss_High_Templar, -100, -50);
+    		holdLine(UnitType.Protoss_Zealot, 150, 300);
+    		holdLine(UnitType.Protoss_Dragoon, 0, 100);
+    		holdLine(UnitType.Protoss_High_Templar, -50, 0);
     	} else {
     		zealots.act(actionBuffer, new AttackMoveAction(enemies.getArithmeticCenter(), Relativity.ABSOLUTE));
     		dragoons.act(actionBuffer, new AttackMoveAction(enemies.getArithmeticCenter(), Relativity.ABSOLUTE));
@@ -203,13 +216,13 @@ public class Bot extends DefaultBWListener {
     private void focusFire() {
     	int dragoonRange = (int)(UnitType.Protoss_Dragoon.groundWeapon().maxRange() * 1.5f);
     	
-    	for(Unit unit : zealots.union(dragoons)) {
+    	for(Unit unit : zealots) {
     		int realRange = unit.getType().airWeapon().maxRange();
     		if (unit.getType().equals(UnitType.Protoss_Dragoon)) {
     			realRange = dragoonRange;
     		}
     		
-    		int testRange = (int)(realRange*1.25f);
+    		int testRange = (int)(realRange*1.5f);
     		
     		UnitSet enemiesInRange = enemies
     				.where(UnitSelector.CAN_ATTACK_GROUND)
@@ -230,42 +243,60 @@ public class Bot extends DefaultBWListener {
     	}
     }
     
+    private int nextPossibleStorm = 0;
+    
     private void doStorms() {
+    	float splashRadius = TechType.Psionic_Storm.getWeapon().medianSplashRadius() * 1.5f;
+    	float stormRange = TechType.Psionic_Storm.getWeapon().maxRange();
+    	
     	for (Unit templar : templars) {
-			Unit bestTarget = null;
-			int bestTargetCount = 2;
+			Vector2D bestTarget = null;
+			float bestScore = 0.5f;
 			for (Unit target : enemies) {
-				int enemyCount = enemies.where(
+				for (int ox=-2; ox<=2; ox++) {
+					for (int oy=-2; oy<=2; oy++) {
+						int enemyCount = enemies.where(
 								new RealComparisonSelector(
 										new DistanceSelector(target), 
-										TechType.Psionic_Storm.getWeapon().medianSplashRadius(),
+										splashRadius,
 										Comparison.LESS_OR_EQUAL
 								)
 							)
 							.size();
-				
-				int mineCount = mine.where(
-						new RealComparisonSelector(
-								new DistanceSelector(target), 
-								TechType.Psionic_Storm.getWeapon().medianSplashRadius(),
-								Comparison.LESS_OR_EQUAL
-						)
-					)
-					.size();
-				
-				int count = enemyCount - mineCount;
-				
-				if (count > bestTargetCount) {
-					bestTarget = target;
-					bestTargetCount = count;
+						
+						int mineCount = mine.where(
+								new RealComparisonSelector(
+										new DistanceSelector(target), 
+										splashRadius,
+										Comparison.LESS_OR_EQUAL
+								)
+							)
+							.size();
+						
+						float score = enemyCount - mineCount*1.9f;
+						
+						if (score > bestScore) {
+							bestTarget = new Vector2D(target.getPosition()).add(new Vector2D(ox*16, oy*16));
+							bestScore = score;
+						}
+					}
 				}
 			}
 			if (bestTarget != null) {
-				if (game.getFrameCount() % 50 == 35) {
-					game.drawCircleMap(bestTarget.getPosition(), 100, Color.Blue);
-					templar.useTech(TechType.Psionic_Storm, bestTarget);
-				} else if (game.getFrameCount() % 50 == 15) {
-					templar.move(mine.getArithmeticCenter().sub(vectorOfAttack.scale(100)).toPosition());
+				float realRange = new Vector2D(templar.getPosition()).sub(bestTarget).length;
+				game.drawCircleMap(bestTarget.toPosition(), (int)stormRange, Color.Yellow);
+				
+				if (realRange <= stormRange*0.9f && game.getFrameCount() >= nextPossibleStorm && templar.canUseTech(TechType.Psionic_Storm, bestTarget.toPosition())) {
+					game.drawCircleMap(bestTarget.toPosition(), (int)splashRadius, Color.Blue, true);
+					if (game.getFrameCount() % 10 == 5) {
+						templar.useTech(TechType.Psionic_Storm, bestTarget.toPosition());
+						nextPossibleStorm = game.getFrameCount() + 50;
+					}
+				} else {
+					game.drawCircleMap(bestTarget.toPosition(), (int)splashRadius, Color.Blue, false);
+					if (game.getFrameCount() % 10 == 5) {
+						templar.move(bestTarget.sub(vectorOfAttack.scale(stormRange).scale(0.8f)).toPosition());
+					}
 				}
 			}
 		}
