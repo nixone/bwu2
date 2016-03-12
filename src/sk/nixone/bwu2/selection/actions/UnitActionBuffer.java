@@ -4,6 +4,8 @@ import java.util.HashMap;
 
 import bwapi.Game;
 import bwapi.Unit;
+import bwapi.UnitType;
+import sk.nixone.bwu2.selection.UnitSelector.UnitTypeSelector;
 
 public class UnitActionBuffer {
 	
@@ -26,5 +28,16 @@ public class UnitActionBuffer {
 			}
 		}
 		unitActions.clear();
+	}
+	
+	public void clear(Unit unit) {
+		unitActions.remove(unit);
+	}
+	
+	public void draw(Game game) {
+		for (Unit unit : unitActions.keySet()) {
+			//if (unit.getType() != UnitType.Protoss_High_Templar) continue;
+			//System.out.println("["+game.getFrameCount()+"] "+unit.getType()+": "+unitActions.get(unit).getClass().getSimpleName());
+		}
 	}
 }

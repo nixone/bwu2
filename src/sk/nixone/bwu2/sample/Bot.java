@@ -52,7 +52,7 @@ public class Bot extends DefaultBWListener {
         game = mirror.getGame();
         self = game.self();
         game.enableFlag(1);
-        game.setLocalSpeed(30);
+        game.setLocalSpeed(15);
         actionBuffer = new UnitActionBuffer(game);
         
         BWTA.readMap();
@@ -74,6 +74,7 @@ public class Bot extends DefaultBWListener {
     private Units zealots = null;
     private Units templars = null;
     private Units dragoons = null;
+    private Units archons = null;
     
     private HashMap<Unit, Vector2D> assignedPositions = new HashMap<>();
     
@@ -96,6 +97,7 @@ public class Bot extends DefaultBWListener {
 	        zealots = mine.where(new UnitTypeSelector(UnitType.Protoss_Zealot));
 	        templars = mine.where(new UnitTypeSelector(UnitType.Protoss_High_Templar));
 	        dragoons = mine.where(new UnitTypeSelector(UnitType.Protoss_Dragoon));
+	        archons = mine.where(new UnitTypeSelector(UnitType.Protoss_Archon));
 	        enemies = new Units(game.getAllUnits()).minus(mine);
 	       
 	        if (map == null) {
@@ -138,12 +140,41 @@ public class Bot extends DefaultBWListener {
 	        
 	        whatToDo();
 	        
+	        actionBuffer.draw(game);
 	        if (game.getFrameCount() % 3 == 1) {
 	        	actionBuffer.executeAll();
 	        }
     	} catch(Throwable t) {
     		t.printStackTrace();
     	}
+    }
+    
+    private void whatToDo() {
+    	if (enemies.isEmpty()) {
+    		if (mine.collectMax(OFF_ASSIGNMENT) < 100) {
+    			assignLines(4, pointOfAttack);
+    		}
+    	} else {
+    		zealots.act(actionBuffer, new AttackMoveAction(enemies.getArithmeticCenter(), Relativity.ABSOLUTE));
+    		dragoons.act(actionBuffer, new AttackMoveAction(enemies.getArithmeticCenter(), Relativity.ABSOLUTE));
+    		archons.act(actionBuffer, new AttackMoveAction(enemies.getArithmeticCenter(), Relativity.ABSOLUTE));
+    		
+    		focusFire();
+    		goAwayFromStorms();
+    		unfocusFire();
+    		
+    		if (!mergeIssued) {
+    			doStorms();
+    			mergeArchonIfNecessary();
+    		}
+    	}
+    }
+    
+    private void unfocusFire() {
+    	dragoons
+    		.where(UnitSelector.IS_UNDER_ATTACK)
+    		.whereLessOrEqual(UnitSelector.HIT_POINTS, UnitType.Protoss_Dragoon.maxHitPoints()/2)
+    		.act(actionBuffer, new MoveAction(vectorOfAttack.scale(-100f), Relativity.RELATIVE));
     }
     
     private void assignGroup(Units group, int line, Vector2D targetCenter) {
@@ -176,26 +207,6 @@ public class Bot extends DefaultBWListener {
     			assignGroup(picked, currentLine, targetCenter);
     			units = units.minus(picked);
     			currentLine++;
-    		}
-    	}
-    }
-    
-    private void whatToDo() {
-    	if (enemies.isEmpty()) {
-    		if (mine.collectMax(OFF_ASSIGNMENT) < 100) {
-    			assignLines(4, pointOfAttack);
-    		}
-    	} else {
-    		zealots.act(actionBuffer, new AttackMoveAction(enemies.getArithmeticCenter(), Relativity.ABSOLUTE));
-    		dragoons.act(actionBuffer, new AttackMoveAction(enemies.getArithmeticCenter(), Relativity.ABSOLUTE));
-    		
-    		focusFire();
-    		goAwayFromStorms();
-    		
-    		if (!mergeIssued) {
-    			doStorms();
-    		} else {
-    			mergeArchonIfNecessary();
     		}
     	}
     }
@@ -236,11 +247,12 @@ public class Bot extends DefaultBWListener {
     private void doStorms() {
     	float splashRadius = TechType.Psionic_Storm.getWeapon().medianSplashRadius() * 1.5f;
     	float stormRange = TechType.Psionic_Storm.getWeapon().maxRange();
+    	float awayRange = stormRange*2f;
     	
     	for (Unit templar : templars) {
 			Vector2D bestTarget = null;
 			float bestScore = 0.5f;
-			for (Unit target : enemies) {
+			for (Unit target : enemies.whereLessOrEqual(new DistanceSelector(templar), awayRange)) {
 				int enemyCount = enemies.where(
 						new RealComparisonSelector(
 								new DistanceSelector(target), 
@@ -266,21 +278,19 @@ public class Bot extends DefaultBWListener {
 					bestScore = score;
 				}
 			}
-			if (bestTarget != null) {
-				float realRange = new Vector2D(templar.getPosition()).sub(bestTarget).length;
-				if (realRange <= stormRange*0.9f && game.getFrameCount() >= nextPossibleStorm && templar.canUseTech(TechType.Psionic_Storm, bestTarget.toPosition())) {
-					actionBuffer.act(templar, new UseTechAction(TechType.Psionic_Storm, bestTarget));
-					nextPossibleStorm = game.getFrameCount() + 50;
-				} else {
-					actionBuffer.act(templar, new MoveAction(bestTarget.sub(vectorOfAttack.scale(stormRange).scale(0.8f)), Relativity.ABSOLUTE));
-				}
+			if (bestTarget != null && game.getFrameCount() >= nextPossibleStorm && templar.canUseTech(TechType.Psionic_Storm, bestTarget.toPosition())) {
+				actionBuffer.act(templar, new UseTechAction(TechType.Psionic_Storm, bestTarget));
+				nextPossibleStorm = game.getFrameCount() + 50;
+			} else {
+				actionBuffer.act(templar, new AttackMoveAction(armyPosition.sub(vectorOfAttack.scale(100f)), Relativity.ABSOLUTE));
 			}
 		}
     }
     
     private void mergeArchonIfNecessary() {
-    	if (templars.size() == 2 && templars.collectMin(UnitSelector.ENERGY) <= 200) {
+    	if (mine.size() < 3 && templars.size() == 2 && templars.collectMin(UnitSelector.ENERGY) <= 75) {
     		actionBuffer.act(templars.get(0), new UseTechAction(TechType.Archon_Warp, templars.get(1)));
+    		actionBuffer.clear(templars.get(1));
     		mergeIssued = true;
     	}
     }
