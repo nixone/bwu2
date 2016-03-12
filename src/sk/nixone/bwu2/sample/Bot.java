@@ -77,6 +77,8 @@ public class Bot extends DefaultBWListener {
     
     private HashMap<Unit, Vector2D> assignedPositions = new HashMap<>();
     
+    private boolean mergeIssued = false;
+    
     private UnitSelector.RealSelector OFF_ASSIGNMENT = new UnitSelector.RealSelector() {
 		
 		@Override
@@ -139,8 +141,6 @@ public class Bot extends DefaultBWListener {
 	        if (game.getFrameCount() % 3 == 1) {
 	        	actionBuffer.executeAll();
 	        }
-	        
-	        drawDebug();
     	} catch(Throwable t) {
     		t.printStackTrace();
     	}
@@ -167,7 +167,7 @@ public class Bot extends DefaultBWListener {
     }
     
     private void assignLines(int perLine, Vector2D targetCenter) {
-    	UnitType[] order = new UnitType[]{UnitType.Protoss_High_Templar, UnitType.Protoss_Dragoon, UnitType.Protoss_Zealot};
+    	UnitType[] order = new UnitType[]{UnitType.Protoss_High_Templar, UnitType.Protoss_Dragoon, UnitType.Protoss_Zealot, UnitType.Protoss_Archon};
     	int currentLine = -1;
     	for (UnitType type : order) {
     		Units units = mine.where(new UnitTypeSelector(type));
@@ -180,29 +180,6 @@ public class Bot extends DefaultBWListener {
     	}
     }
     
-    private void drawDebug() {
-    	game.drawCircleMap(mine.getArithmeticCenter().toPosition(), 10, Color.Green);
-    	game.drawLineMap(armyPosition.toPosition(), armyPosition.add(vectorOfAttack.scale(200)).toPosition(), Color.Green);
-    	
-    	if (path != null) {
-    		game.drawTextScreen(10, 50, "Army: "+armyPosition);
-    		Position lastPosition = null;
-        	Iterator<Vector2D> it = path.iterator();
-        	while (it.hasNext()) {
-        		Position current = it.next().toPosition();
-        		
-        		if (lastPosition != null) {
-        			game.drawLineMap(lastPosition, current, Color.Green);
-        		} else {
-        			game.drawTextScreen(10, 30, "First: "+current);
-        		}
-        		
-        		lastPosition = current;
-        	}
-        	game.drawTextScreen(10, 40, "Last: "+lastPosition);
-    	}
-    }
-    
     private void whatToDo() {
     	if (enemies.isEmpty()) {
     		if (mine.collectMax(OFF_ASSIGNMENT) < 100) {
@@ -212,11 +189,14 @@ public class Bot extends DefaultBWListener {
     		zealots.act(actionBuffer, new AttackMoveAction(enemies.getArithmeticCenter(), Relativity.ABSOLUTE));
     		dragoons.act(actionBuffer, new AttackMoveAction(enemies.getArithmeticCenter(), Relativity.ABSOLUTE));
     		
-    		//mergeArchonIfNecessary();
     		focusFire();
-    		doStorms();
-    		
     		goAwayFromStorms();
+    		
+    		if (!mergeIssued) {
+    			doStorms();
+    		} else {
+    			mergeArchonIfNecessary();
+    		}
     	}
     }
     
@@ -245,12 +225,8 @@ public class Bot extends DefaultBWListener {
 			Unit toKill = enemiesInRange.order(UnitSelector.HIT_POINTS).first();
 			
 			if (toKill != null) {
-				game.drawLineMap(unit.getPosition(), toKill.getPosition(), Color.Red);
-				
 				Unit target = toKill;
 				actionBuffer.act(unit, new AttackMoveAction(target));
-				game.drawCircleMap(target.getPosition(), 10, Color.Red, true);
-				game.drawCircleMap(unit.getPosition(), 10, Color.Red, true);
 			}
     	}
     }
@@ -292,27 +268,19 @@ public class Bot extends DefaultBWListener {
 			}
 			if (bestTarget != null) {
 				float realRange = new Vector2D(templar.getPosition()).sub(bestTarget).length;
-				game.drawCircleMap(bestTarget.toPosition(), (int)stormRange, Color.Yellow);
-				
 				if (realRange <= stormRange*0.9f && game.getFrameCount() >= nextPossibleStorm && templar.canUseTech(TechType.Psionic_Storm, bestTarget.toPosition())) {
-					game.drawCircleMap(bestTarget.toPosition(), (int)splashRadius, Color.Blue, true);
-					
 					actionBuffer.act(templar, new UseTechAction(TechType.Psionic_Storm, bestTarget));
 					nextPossibleStorm = game.getFrameCount() + 50;
 				} else {
-					game.drawCircleMap(bestTarget.toPosition(), (int)splashRadius, Color.Blue, false);
 					actionBuffer.act(templar, new MoveAction(bestTarget.sub(vectorOfAttack.scale(stormRange).scale(0.8f)), Relativity.ABSOLUTE));
 				}
 			}
 		}
     }
     
-    private boolean mergeIssued = false;
-    
     private void mergeArchonIfNecessary() {
-    	if (mergeIssued) return;
-    	if (templars.size() == 2 && templars.collectMax(UnitSelector.ENERGY) < 75) {
-    		templars.get(0).useTech(TechType.Archon_Warp, templars.get(1));
+    	if (templars.size() == 2 && templars.collectMin(UnitSelector.ENERGY) <= 200) {
+    		actionBuffer.act(templars.get(0), new UseTechAction(TechType.Archon_Warp, templars.get(1)));
     		mergeIssued = true;
     	}
     }
