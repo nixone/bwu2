@@ -52,7 +52,7 @@ public class Bot extends DefaultBWListener {
         game = mirror.getGame();
         self = game.self();
         game.enableFlag(1);
-        game.setLocalSpeed(15);
+        game.setLocalSpeed(25);
         actionBuffer = new UnitActionBuffer(game);
         
         BWTA.readMap();
@@ -68,6 +68,7 @@ public class Bot extends DefaultBWListener {
     
     private List<Vector2D> path = null;
     private Map map = null;
+    private Map pureMap = null;
     
     private Units mine = null;
     private Units enemies = null;
@@ -101,8 +102,9 @@ public class Bot extends DefaultBWListener {
 	        enemies = new Units(game.getAllUnits()).minus(mine);
 	       
 	        if (map == null) {
-	        	map = new Map(game)
-	        			.remapFromBound(20)
+	        	pureMap = new Map(game);
+	        	map = pureMap
+	        			.remapFromBound(15)
 	        			.downscale(2, false);
 	        }
 	        
@@ -144,15 +146,62 @@ public class Bot extends DefaultBWListener {
 	        if (game.getFrameCount() % 3 == 1) {
 	        	actionBuffer.executeAll();
 	        }
+	        
+	        drawPath();
+	        drawLocations();
     	} catch(Throwable t) {
     		t.printStackTrace();
+    	}
+    }
+    
+    private float spaceForArmy() {
+    	Vector2D ray = Vector2D.NORTH;
+    	int rays = 10;
+    	float lowestSpace = Float.POSITIVE_INFINITY;
+    	for (int i=0; i<rays; i++) {
+    		float l = pureMap.raycast(armyPosition, ray).sub(armyPosition).length;
+    		if (l < lowestSpace) {
+    			lowestSpace = l;
+    		}
+    		ray = ray.rotate(Math.PI*2.0/rays);
+    	}
+    	return lowestSpace;
+    }
+    
+    private void drawPath() {
+    	if (path != null) {
+    		Vector2D current = null;
+    		Iterator<Vector2D> it = path.iterator();
+    		while (it.hasNext()) {
+    			Vector2D next = it.next();
+    			if (current != null) {
+    				game.drawLineMap(current.toPosition(), next.toPosition(), Color.Green);
+    			}
+    			current = next;
+    		}
+    	}
+    }
+    
+    private void drawLocations() {
+    	for (Vector2D location : pointsToDiscover) {
+    		game.drawCircleMap(location.toPosition(), 50, Color.Green);
+    	}
+    }
+    
+    private void drawRaycast() {
+    	Vector2D ray = Vector2D.NORTH;
+    	int rays = 10;
+    	for (int i=0; i<rays; i++) {
+    		Vector2D rayCast = pureMap.raycast(armyPosition, ray);
+    		game.drawLineMap(armyPosition.toPosition(), rayCast.toPosition(), Color.White);
+    		ray = ray.rotate(Math.PI*2.0/rays);
     	}
     }
     
     private void whatToDo() {
     	if (enemies.isEmpty()) {
     		if (mine.collectMax(OFF_ASSIGNMENT) < 100) {
-    			assignLines(4, pointOfAttack);
+    			assignLines(pointOfAttack);
     		}
     	} else {
     		zealots.act(actionBuffer, new AttackMoveAction(enemies.getArithmeticCenter(), Relativity.ABSOLUTE));
@@ -177,18 +226,18 @@ public class Bot extends DefaultBWListener {
     		.act(actionBuffer, new MoveAction(vectorOfAttack.scale(-100f), Relativity.RELATIVE));
     }
     
-    private void assignGroup(Units group, int line, Vector2D targetCenter) {
+    private void assignGroup(Units group, int line, Vector2D targetCenter, int unitsGrid) {
     	Vector2D currentCenter = armyPosition;
     	Vector2D movementVector = targetCenter.sub(currentCenter).normalize();
     	Vector2D movementOrtho = movementVector.getOrthogonal()[0];
     	group = group.order(new DotProductSelector(armyPosition, movementOrtho));
-    	int grid = 50;
+    	int lineGrid = 50;
     	
     	int offset = -group.size() / 2;
     	for (Unit unit : group) {
     		Vector2D targetPosition = targetCenter
-    				.add(movementVector.scale(line*grid))
-    				.add(movementOrtho.scale(offset*grid));
+    				.add(movementVector.scale(line*lineGrid))
+    				.add(movementOrtho.scale(offset*unitsGrid));
     		
     		assignedPositions.put(unit, targetPosition);
     		actionBuffer.act(unit, new MoveAction(targetPosition, Relativity.ABSOLUTE));
@@ -197,14 +246,28 @@ public class Bot extends DefaultBWListener {
     	}
     }
     
-    private void assignLines(int perLine, Vector2D targetCenter) {
+    private void assignLines(Vector2D targetCenter) {
+    	float space = 1.5f*spaceForArmy();
+    	int minimalGrid = 50;
+    	
     	UnitType[] order = new UnitType[]{UnitType.Protoss_High_Templar, UnitType.Protoss_Dragoon, UnitType.Protoss_Zealot, UnitType.Protoss_Archon};
     	int currentLine = -1;
     	for (UnitType type : order) {
     		Units units = mine.where(new UnitTypeSelector(type));
+    		
+    		int perLine;
+    		int unitGrid;
+    		if (minimalGrid * units.size() > space) {
+    			perLine = (int)(space / 50);
+    			unitGrid = minimalGrid;
+    		} else {
+    			perLine = units.size();
+    			unitGrid = (int)(space / perLine);
+    		}
+    		
     		while (!units.isEmpty()) {
     			Units picked = units.limit(perLine);
-    			assignGroup(picked, currentLine, targetCenter);
+    			assignGroup(picked, currentLine, targetCenter, unitGrid);
     			units = units.minus(picked);
     			currentLine++;
     		}

@@ -32,10 +32,15 @@ public class Map {
 		}
 	}
 	
-	public boolean isWalkable(int x, int y) {
+	private boolean isWalkable(int x, int y) {
 		if (x < 0 || x >= width) return false;
 		if (y < 0 || y >= height) return false;
 		return matrix[x][y];
+	}
+	
+	public boolean isWalkable(Vector2D position) {
+		int[] indexes = toIndexes(position);
+		return isWalkable(indexes[0], indexes[1]);
 	}
 	
 	public Map downscale(int factor, boolean or) {
@@ -194,5 +199,16 @@ public class Map {
 			}
 		}
 		return null;
+	}
+	
+	public Vector2D raycast(Vector2D from, Vector2D direction) {
+		direction = direction.normalize();
+		float steps = 0.5f * downscaleFactor;
+		
+		while (true) {
+			Vector2D next = from.add(direction.scale(steps));
+			if (!isWalkable(next)) return from;
+			from = next;
+		}
 	}
 }

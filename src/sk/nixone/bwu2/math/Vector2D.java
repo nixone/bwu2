@@ -217,6 +217,12 @@ public class Vector2D
 		return ((Vector2D)object).sameAs(this);
 	}
 	
+	public Vector2D rotate(double cwRadians) {
+		double deg = Math.atan2(x, y);
+		deg += cwRadians;
+		return new Vector2D((float)Math.sin(deg)*length, (float)Math.cos(deg)*length);
+	}
+	
 	/**
 	 * Converts the vector to JNIBWAPI position.
 	 * 
