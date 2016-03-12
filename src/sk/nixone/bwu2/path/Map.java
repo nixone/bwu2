@@ -7,12 +7,13 @@ import java.util.PriorityQueue;
 
 import bwapi.Game;
 import bwapi.WalkPosition;
+import sk.nixone.bwu2.math.Vector2D;
 
 public class Map {
 	private boolean [][] matrix;
 	private int width;
 	private int height;
-	private int downscaleFactor = 1;
+	private int downscaleFactor = 8;
 	
 	public Map(boolean[][] matrix) {
 		this.matrix = matrix;
@@ -57,7 +58,7 @@ public class Map {
 		}
 		
 		Map result = new Map(newMatrix);
-		result.downscaleFactor = factor;
+		result.downscaleFactor = factor*downscaleFactor;
 		return result;
 	}
 	
@@ -89,21 +90,47 @@ public class Map {
 		return new Map(newMatrix);
 	}
 	
-	private int [] toIndexes(WalkPosition position) {
+	private int [] toIndexes(Vector2D position) {
 		return new int [] {
-			position.getX() / downscaleFactor,
-			position.getY() / downscaleFactor
+			(int) (position.getX() / downscaleFactor),
+			(int) (position.getY() / downscaleFactor)
 		};
 	}
 	
-	private WalkPosition fromIndexes(int x, int y) {
-		return new WalkPosition(x * downscaleFactor + downscaleFactor/2, y * downscaleFactor + downscaleFactor/2);
+	private Vector2D fromIndexes(int x, int y) {
+		return new Vector2D(x * downscaleFactor + downscaleFactor/2, y * downscaleFactor + downscaleFactor/2);
 	}
 	
-	// TODO return even the closest
-	public List<WalkPosition> getPath(WalkPosition from, WalkPosition to) {
-		final int [] target = toIndexes(to);
-		final int [] source = toIndexes(from);
+	private int[] closestWalkable(int x, int y) {
+		boolean[][] discovered = new boolean[width][height];
+		LinkedList<int[]> queue = new LinkedList<>();
+		queue.add(new int[]{x,y});
+		while (!queue.isEmpty()) {
+			int[] item = queue.removeFirst();
+			if (discovered[item[0]][item[1]]) continue;
+			discovered[item[0]][item[1]] = true;
+			if (isWalkable(item[0], item[1])) {
+				return item;
+			}
+			for (int ox=-1; ox<=1; ox++) {
+				for (int oy=-1; oy<=1; oy++) {
+					int nx = item[0]+ox;
+					int ny = item[1]+oy;
+					if (nx >= 0 && ny >= 0 && nx < width && ny < height && !discovered[nx][ny]) {
+						queue.addLast(new int[]{nx,ny});
+					}
+				}
+			}
+		}
+		return null;
+	}
+	
+	public List<Vector2D> getPath(Vector2D from, Vector2D to) {
+		int [] potentialSource = toIndexes(from);
+		int [] potentialTarget = toIndexes(to);
+		
+		final int [] target = isWalkable(potentialTarget[0], potentialTarget[1]) ? potentialTarget : closestWalkable(potentialTarget[0], potentialTarget[1]);
+		final int [] source = isWalkable(potentialSource[0], potentialSource[1]) ? potentialSource : closestWalkable(potentialSource[0], potentialSource[1]);
 		
 		int [][][] pred = new int[width][height][2];
 		boolean [][] discovered = new boolean[width][height];
@@ -131,7 +158,6 @@ public class Map {
 		while(!queue.isEmpty()) {
 			int [] pos = queue.poll();
 			
-			// discover
 			if (discovered[pos[0]][pos[1]]) continue;
 			discovered[pos[0]][pos[1]] = true;
 			
@@ -145,7 +171,7 @@ public class Map {
 			lengths[pos[0]][pos[1]] = lengths[pos[2]][pos[3]] + Math.sqrt(dx*dx+dy*dy);
 			
 			if (pos[0]==target[0] && pos[1]==target[1]) {
-				LinkedList<WalkPosition> path = new LinkedList<>();
+				LinkedList<Vector2D> path = new LinkedList<>();
 				
 				while (pos[0] != source[0] || pos[1] != source[1]) {
 					path.addFirst(fromIndexes(pos[0], pos[1]));
@@ -161,7 +187,7 @@ public class Map {
 					int nx = pos[0]+ox;
 					int ny = pos[1]+oy;
 					
-					if ((!isWalkable(pos[0], pos[1]) || isWalkable(nx, ny)) && !discovered[nx][ny]) {
+					if (isWalkable(nx, ny) && !discovered[nx][ny]) {
 						queue.add(new int[]{nx, ny, pos[0], pos[1]});
 					}
 				}

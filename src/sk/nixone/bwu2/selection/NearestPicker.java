@@ -1,5 +1,6 @@
 package sk.nixone.bwu2.selection;
 
+import java.util.Collection;
 import java.util.Set;
 
 import bwapi.Position;
@@ -23,7 +24,7 @@ public class NearestPicker implements Picker
 	}
 	
 	@Override
-	public Unit pickFrom(Set<Unit> units)
+	public Unit pickFrom(Collection<Unit> units)
 	{
 		Unit selectedUnit = null;
 		double shortestDistance = Double.POSITIVE_INFINITY;

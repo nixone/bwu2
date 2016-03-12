@@ -2,7 +2,7 @@ package sk.nixone.bwu2.selection.aggregators;
 
 import bwapi.Unit;
 import sk.nixone.bwu2.selection.UnitSelector.RealSelector;
-import sk.nixone.bwu2.selection.UnitSet;
+import sk.nixone.bwu2.selection.Units;
 
 public class AverageRealAggregator implements Aggregator<Double>
 {
@@ -13,7 +13,7 @@ public class AverageRealAggregator implements Aggregator<Double>
 		this.selector = selector;
 	}
 	
-	public Double aggregate(UnitSet units)
+	public Double aggregate(Units units)
 	{
 		double accumulated = 0;
 		

@@ -25,12 +25,12 @@ import sk.nixone.bwu2.selection.aggregators.AverageRealAggregator;
  * 
  */
 @SuppressWarnings("serial")
-public class UnitSet extends HashSet<Unit>
+public class Units extends ArrayList<Unit>
 {
 	/**
 	 * Creates an empty unit set
 	 */
-	public UnitSet()
+	public Units()
 	{
 		// empty for empty unitset
 	}
@@ -43,7 +43,7 @@ public class UnitSet extends HashSet<Unit>
 	 * @param units
 	 *            collection of units
 	 */
-	public UnitSet(Collection<Unit> units)
+	public Units(Collection<Unit> units)
 	{
 		for (Unit unit : units)
 		{
@@ -51,7 +51,7 @@ public class UnitSet extends HashSet<Unit>
 		}
 	}
 	
-	public UnitSet(Unit... units) {
+	public Units(Unit... units) {
 		for (Unit unit : units) {
 			add(unit);
 		}
@@ -64,9 +64,9 @@ public class UnitSet extends HashSet<Unit>
 	 * @param selector
 	 * @return new unit set
 	 */
-	public UnitSet where(UnitSelector.BooleanSelector selector)
+	public Units where(UnitSelector.BooleanSelector selector)
 	{
-		UnitSet result = new UnitSet();
+		Units result = new Units();
 		for (Unit unit : this)
 		{
 			if (selector.isTrueFor(unit))
@@ -84,9 +84,9 @@ public class UnitSet extends HashSet<Unit>
 	 * @param selector
 	 * @return
 	 */
-	public UnitSet whereNot(UnitSelector.BooleanSelector selector)
+	public Units whereNot(UnitSelector.BooleanSelector selector)
 	{
-		UnitSet result = new UnitSet();
+		Units result = new Units();
 		for (Unit unit : this)
 		{
 			if (!selector.isTrueFor(unit))
@@ -107,7 +107,7 @@ public class UnitSet extends HashSet<Unit>
 	 *            threshold
 	 * @return
 	 */
-	public UnitSet whereLessOrEqual(UnitSelector.IntegerSelector selector, int value)
+	public Units whereLessOrEqual(UnitSelector.IntegerSelector selector, int value)
 	{
 		return where(new IntegerComparisonSelector(selector, value, Comparison.LESS_OR_EQUAL));
 	}
@@ -122,7 +122,7 @@ public class UnitSet extends HashSet<Unit>
 	 *            threshold
 	 * @return
 	 */
-	public UnitSet whereLessOrEqual(UnitSelector.RealSelector selector, double value)
+	public Units whereLessOrEqual(UnitSelector.RealSelector selector, double value)
 	{
 		return where(new RealComparisonSelector(selector, value, Comparison.LESS_OR_EQUAL));
 	}
@@ -137,7 +137,7 @@ public class UnitSet extends HashSet<Unit>
 	 *            threshold
 	 * @return
 	 */
-	public UnitSet whereGreatherOrEqual(UnitSelector.IntegerSelector selector, int value)
+	public Units whereGreatherOrEqual(UnitSelector.IntegerSelector selector, int value)
 	{
 		return where(new IntegerComparisonSelector(selector, value, Comparison.GREATER_OR_EQUAL));
 	}
@@ -152,7 +152,7 @@ public class UnitSet extends HashSet<Unit>
 	 *            threshold
 	 * @return
 	 */
-	public UnitSet whereGreatherOrEqual(UnitSelector.RealSelector selector, double value)
+	public Units whereGreatherOrEqual(UnitSelector.RealSelector selector, double value)
 	{
 		return where(new RealComparisonSelector(selector, value, Comparison.GREATER_OR_EQUAL));
 	}
@@ -165,7 +165,7 @@ public class UnitSet extends HashSet<Unit>
 	 *            type to be equal
 	 * @return
 	 */
-	public UnitSet whereType(UnitType unitType)
+	public Units whereType(UnitType unitType)
 	{
 		return where(new UnitSelector.UnitTypeSelector(unitType));
 	}
@@ -177,7 +177,7 @@ public class UnitSet extends HashSet<Unit>
 	 * @param unitType
 	 * @return
 	 */
-	public UnitSet whereTypeNot(UnitType unitType)
+	public Units whereTypeNot(UnitType unitType)
 	{
 		return this.minus(this.whereType(unitType));
 	}
@@ -239,7 +239,7 @@ public class UnitSet extends HashSet<Unit>
 	{
 		for (UnitType type : unitTypes)
 		{
-			UnitSet subSet = whereType(type);
+			Units subSet = whereType(type);
 			if (subSet.size() > 0)
 			{
 				return subSet.first();
@@ -263,13 +263,13 @@ public class UnitSet extends HashSet<Unit>
 	 * 			required unit types
 	 * @return set of required units
 	 */
-	public UnitSet firstNOf(int n, UnitType... unitTypes)
+	public Units firstNOf(int n, UnitType... unitTypes)
 	{
-		UnitSet result = new UnitSet();
+		Units result = new Units();
 
 		for (UnitType type : unitTypes)
 		{
-			UnitSet subSet = whereType(type);
+			Units subSet = whereType(type);
 			Iterator<Unit> it = subSet.iterator();
 
 			while (it.hasNext() && result.size() < n)
@@ -295,8 +295,8 @@ public class UnitSet extends HashSet<Unit>
 		return iterator().next();
 	}
 
-	public UnitSet minus(Unit unit) {
-		UnitSet result = new UnitSet(this);
+	public Units minus(Unit unit) {
+		Units result = new Units(this);
 		result.remove(unit);
 		return result;
 	}
@@ -309,9 +309,9 @@ public class UnitSet extends HashSet<Unit>
 	 * 			specified set
 	 * @return all units that are in this set but are not in the specified one
 	 */
-	public UnitSet minus(UnitSet units)
+	public Units minus(Units units)
 	{
-		UnitSet result = new UnitSet();
+		Units result = new Units();
 		for (Unit unit : this)
 		{
 			if (!units.contains(unit))
@@ -329,9 +329,9 @@ public class UnitSet extends HashSet<Unit>
 	 * 			specified set
 	 * @return intersection of this and specified set
 	 */
-	public UnitSet intersection(UnitSet set)
+	public Units intersection(Units set)
 	{
-		UnitSet result = new UnitSet();
+		Units result = new Units();
 
 		for (Unit unit : this)
 		{
@@ -350,9 +350,9 @@ public class UnitSet extends HashSet<Unit>
 	 * @param set
 	 * @return fact
 	 */
-	public UnitSet union(UnitSet set)
+	public Units union(Units set)
 	{
-		UnitSet result = new UnitSet(this);
+		Units result = new Units(this);
 
 		result.addAll(set);
 
@@ -378,27 +378,26 @@ public class UnitSet extends HashSet<Unit>
 		return picker.pickFrom(this);
 	}
 	
-	public List<Unit> pickNOrdered(int limit, final IntegerSelector orderingSelector) {
-		return pickNOrdered(limit, new RealSelector() {
-			
-			@Override
-			public double getValue(Unit unit) {
-				return orderingSelector.getValue(unit);
-			}
-		});
+	public Units limit(int maximum) {
+		Units result = new Units();
+		for (Unit unit : this) {
+			if (result.size() >= maximum) break;
+			result.add(unit);
+		}
+		return result;
 	}
 	
-	public List<Unit> pickNOrdered(int limit, RealSelector orderingSelector) {
-		List<Unit> result = new ArrayList<>();
-    	double lastValue = Double.NEGATIVE_INFINITY;
+	public Units order(RealSelector ordering) {
+		Units result = new Units();
+		double lastValue = Double.NEGATIVE_INFINITY;
     	
-    	for (int i=0; i<limit; i++) {
+    	while (result.size() < size()) {
     		double bestValue = Double.MAX_VALUE;
     		Unit bestUnit = null;
         	for (Unit unit : this) {
         		if (unit == bestUnit) continue;
         		if (result.contains(unit)) continue;
-        		double value = orderingSelector.getValue(unit);
+        		double value = ordering.getValue(unit);
         		if (value < lastValue) continue;
         		if (value <= bestValue) {
         			bestValue = value;
@@ -412,13 +411,73 @@ public class UnitSet extends HashSet<Unit>
         		lastValue = bestValue;
         	}
     	}
-    	
     	return result;
+	}
+	
+	public Units order(final IntegerSelector orderingSelector) {
+		return order(new RealSelector() {
+			@Override
+			public double getValue(Unit unit) {
+				return orderingSelector.getValue(unit);
+			}
+		});
+	}
+	
+	public Units reverse() {
+		Units result = new Units();
+		for (int i=size()-1; i>=0; i--) {
+			result.add(get(i));
+		}
+		return result;
 	}
 	
 	public void act(UnitActionBuffer buffer, UnitAction action) {
 		for (Unit unit : this) {
 			buffer.act(unit, action);
 		}
+	}
+	
+	public int collectMax(IntegerSelector valueSelector) {
+		int result = Integer.MIN_VALUE;
+		for (Unit unit : this) {
+			int v = valueSelector.getValue(unit);
+			if (v > result) {
+				result = v;
+			}
+		}
+		return result;
+	}
+	
+	public double collectMax(RealSelector valueSelector) {
+		double result = Double.NEGATIVE_INFINITY;
+		for (Unit unit : this) {
+			double v = valueSelector.getValue(unit);
+			if (v > result) {
+				result = v;
+			}
+		}
+		return result;
+	}
+	
+	public int collectMin(IntegerSelector valueSelector) {
+		int result = Integer.MAX_VALUE;
+		for (Unit unit : this) {
+			int v = valueSelector.getValue(unit);
+			if (v < result) {
+				result = v;
+			}
+		}
+		return result;
+	}
+	
+	public double collectMin(RealSelector valueSelector) {
+		double result = Double.POSITIVE_INFINITY;
+		for (Unit unit : this) {
+			double v = valueSelector.getValue(unit);
+			if (v < result) {
+				result = v;
+			}
+		}
+		return result;
 	}
 }

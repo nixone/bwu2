@@ -1,10 +1,11 @@
 package sk.nixone.bwu2.selection;
 
+import java.util.Collection;
 import java.util.Set;
 
 import bwapi.Unit;
 
 public interface Picker
 {
-	Unit pickFrom(Set<Unit> units);
+	Unit pickFrom(Collection<Unit> units);
 }

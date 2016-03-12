@@ -1,5 +1,6 @@
 package sk.nixone.bwu2.math;
 import bwapi.Position;
+import bwapi.Unit;
 import bwapi.WalkPosition;
 
 /**
@@ -53,6 +54,10 @@ public class Vector2D
 	
 	public Vector2D(WalkPosition position) {
 		this(position.getX()*8, position.getY()*8);
+	}
+	
+	public Vector2D(Unit unit) {
+		this(unit.getPosition());
 	}
 	
 	/**

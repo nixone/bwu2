@@ -24,12 +24,9 @@ public class AttackMoveAction implements UnitAction {
 	
 	@Override
 	public void execute(Game game, Unit unit) {
-		if (!unit.isIdle()) {
-			return;
-		}
 		if (this.unit != null) {
 			if (unit.getType().canAttack()) {
-				unit.attack(unit);
+				unit.attack(unit, true);
 			} else {
 				unit.move(unit.getPosition());
 			}
@@ -41,7 +38,7 @@ public class AttackMoveAction implements UnitAction {
 				position = Vector2DMath.toVector(unit.getPosition()).add(vector).toPosition();
 			}
 			if (unit.getType().canAttack()) {
-				unit.attack(position);
+				unit.attack(position, true);
 			} else {
 				unit.move(position);
 			}
